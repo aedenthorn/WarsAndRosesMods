@@ -1,11 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using UnityEngine;
 
 namespace MissionAdvanceFix
@@ -28,7 +24,7 @@ namespace MissionAdvanceFix
         {
 
             context = this;
-            enableMod = Config.Bind<bool>("General", "Enabled", false, "Enable this mod");
+            enableMod = Config.Bind<bool>("General", "Enabled", true, "Enable this mod");
             isDebug = Config.Bind<bool>("General", "IsDebug", true, "Enable debug logs");
         
 

@@ -1,17 +1,11 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
-using HarmonyLib;
 using RealisticEyeMovements;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace ClothesMod
 {

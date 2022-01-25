@@ -28,7 +28,7 @@ namespace LogSpamFix
         {
 
             context = this;
-            enableMod = Config.Bind<bool>("General", "Enabled", false, "Enable this mod");
+            enableMod = Config.Bind<bool>("General", "Enabled", true, "Enable this mod");
             isDebug = Config.Bind<bool>("General", "IsDebug", true, "Enable debug logs");
         
 
