@@ -65,6 +65,7 @@ namespace ClothesMod
 
             ApplyConfig();
 
+            /*
             //Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
             string path = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Skins");
             foreach(var file in Directory.GetFiles(path))
@@ -75,6 +76,7 @@ namespace ClothesMod
                 textureDict.Add(Path.GetFileNameWithoutExtension(file), texture);
                 Dbgl($"Added skin texture {Path.GetFileNameWithoutExtension(file)}");
             }
+            */
             Dbgl("Plugin awake");
         }
         private static void ApplyConfig()
@@ -239,7 +241,7 @@ namespace ClothesMod
             {
                 if (child.name != "hip" && !child.name.StartsWith("Genesis8Female"))
                 {
-                    smrs.AddRange(child.GetComponentsInChildren<SkinnedMeshRenderer>());
+                    smrs.AddRange(child.GetComponentsInChildren<SkinnedMeshRenderer>(true));
                 }
             }
         }
