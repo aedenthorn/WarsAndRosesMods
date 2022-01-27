@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using RealisticEyeMovements;
 using System;
 using System.Reflection;
 using UnityEngine;
@@ -29,6 +30,7 @@ namespace AdvancedCamera
         private static ConfigEntry<string> yNegMoveKey;
         private static ConfigEntry<string> zNegMoveKey;
         private static ConfigEntry<string> resetKey;
+        private static ConfigEntry<string> lookAtCameraKey;
 
 
         public static void Dbgl(string str = "", bool pref = true)
@@ -44,10 +46,11 @@ namespace AdvancedCamera
             isDebug = Config.Bind<bool>("General", "IsDebug", true, "Enable debug logs");
             enableRandom = Config.Bind<bool>("Options", "EnableRandom", true, "Enable random camera switching");
             randomToggleKey = Config.Bind<string>("Options", "RandomToggleKey", "-", "Toggle random camera key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
-            xRotateKey = Config.Bind<string>("Options", "XRotateKey", "[8]", "X rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
+            lookAtCameraKey = Config.Bind<string>("Options", "LookAtCameraKey", "[5]", "Look at camera key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
+            xRotateKey = Config.Bind<string>("Options", "XRotateKey", "[2]", "X rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
             yRotateKey = Config.Bind<string>("Options", "YRotateKey", "[6]", "Y rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
             zRotateKey = Config.Bind<string>("Options", "ZRotateKey", "[9]", "Z rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
-            xNegRotateKey = Config.Bind<string>("Options", "XNegRotateKey", "[2]", "X negative rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
+            xNegRotateKey = Config.Bind<string>("Options", "XNegRotateKey", "[8]", "X negative rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
             yNegRotateKey = Config.Bind<string>("Options", "YNegRotateKey", "[4]", "Y negative rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
             zNegRotateKey = Config.Bind<string>("Options", "ZNegRotateKey", "[7]", "Z negative rotate key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
             xMoveKey = Config.Bind<string>("Options", "XMoveKey", "right", "X Move key. Use https://docs.unity3d.com/Manual/class-InputManager.html");
@@ -94,13 +97,13 @@ namespace AdvancedCamera
             if (CheckKeyHeld(xRotateKey.Value))
             {
                 var camera = Global.code.curInteraction.cameras[Math.Max(Math.Min(Global.code.curInteraction.curCamIndex, Global.code.curInteraction.cameras.Length - 1), 0)];
-                camera.transform.GetChild(0).localEulerAngles += new Vector3(1, 0, 0);
+                camera.transform.GetChild(0).localEulerAngles += camera.transform.GetChild(0).localRotation * new Vector3(1, 0, 0);
                 return;
             }
             if (CheckKeyHeld(yRotateKey.Value))
             {
                 var camera = Global.code.curInteraction.cameras[Math.Max(Math.Min(Global.code.curInteraction.curCamIndex, Global.code.curInteraction.cameras.Length - 1), 0)];
-                camera.transform.GetChild(0).localEulerAngles += new Vector3(0, 1, 0);
+                camera.transform.GetChild(0).localEulerAngles += camera.transform.GetChild(0).localRotation * new Vector3(0, 1, 0);
                 return;
             }
             if (CheckKeyHeld(zRotateKey.Value))
@@ -113,13 +116,13 @@ namespace AdvancedCamera
             if (CheckKeyHeld(xNegRotateKey.Value))
             {
                 var camera = Global.code.curInteraction.cameras[Math.Max(Math.Min(Global.code.curInteraction.curCamIndex, Global.code.curInteraction.cameras.Length - 1), 0)];
-                camera.transform.GetChild(0).localEulerAngles += new Vector3(-1, 0, 0);
+                camera.transform.GetChild(0).localEulerAngles += camera.transform.GetChild(0).localRotation * new Vector3(-1, 0, 0);
                 return;
             }
             if (CheckKeyHeld(yNegRotateKey.Value))
             {
                 var camera = Global.code.curInteraction.cameras[Math.Max(Math.Min(Global.code.curInteraction.curCamIndex, Global.code.curInteraction.cameras.Length - 1), 0)];
-                camera.transform.GetChild(0).localEulerAngles += new Vector3(0, -1, 0);
+                camera.transform.GetChild(0).localEulerAngles += camera.transform.GetChild(0).localRotation * new Vector3(0, -1, 0);
                 return;
             }
             if (CheckKeyHeld(zNegRotateKey.Value))
@@ -171,6 +174,32 @@ namespace AdvancedCamera
                 var camera = Global.code.curInteraction.cameras[Math.Max(Math.Min(Global.code.curInteraction.curCamIndex, Global.code.curInteraction.cameras.Length - 1), 0)];
                 camera.transform.GetChild(0).localPosition = Vector3.zero;
                 camera.transform.GetChild(0).localEulerAngles = Vector3.zero;
+                return;
+            }
+            if (CheckKeyDown(lookAtCameraKey.Value))
+            {
+                LookTargetController[] ltcs = FindObjectsOfType<LookTargetController>();
+                if (ltcs.Length != 0)
+                {
+                    foreach (LookTargetController ltc in ltcs)
+                    {
+                        if((int)AccessTools.Field(typeof(LookTargetController), "state").GetValue(ltc) != 0)
+                        {
+                            if (Global.code.curInteraction.cameras[Global.code.curInteraction.curCamIndex].transform.childCount > 0)
+                            {
+                                ltc.SetTarget(Global.code.curInteraction.cameras[Global.code.curInteraction.curCamIndex].transform.GetChild(0));
+                            }
+                            else
+                            {
+                                ltc.SetTarget(Global.code.curInteraction.cameras[Global.code.curInteraction.curCamIndex].transform);
+                            }
+                        }
+                        else
+                        {
+                            ltc.LookAroundIdly();
+                        }
+                    }
+                }
                 return;
             }
 

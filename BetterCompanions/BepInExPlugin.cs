@@ -1,15 +1,13 @@
-﻿using BepInEx;
+﻿using Ballistics;
+using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
+using UnityEngine.EventSystems;
 
 namespace BetterCompanions
 {
@@ -25,7 +23,8 @@ namespace BetterCompanions
         public static ConfigEntry<int> radioChancePerSecond;
         public static ConfigEntry<bool> noRadioWhileFollowing;
         public static ConfigEntry<bool> extraEquipmentSlots;
-        public static ConfigEntry<int> healthRegenPerSecond;
+        public static ConfigEntry<bool> disableFriendlyFire;
+        public static ConfigEntry<float> healthRegenPerSecond;
         
 
         public static void Dbgl(string str = "", bool pref = true)
@@ -39,12 +38,13 @@ namespace BetterCompanions
             context = this;
             enableMod = Config.Bind<bool>("General", "Enabled", true, "Enable this mod");
             isDebug = Config.Bind<bool>("General", "IsDebug", true, "Enable debug logs");
-            damageTakenMult = Config.Bind<float>("General", "DamageTakenMult", 0.5f, "Multiply all damage taken by companions by this amount");
-            minTimeBetweenRadio = Config.Bind<int>("General", "MinTimeBetweenRadio", 20, "Min number of seconds between idle radio chatter. Vanilla is 15");
-            radioChancePerSecond = Config.Bind<int>("General", "RadioChancePerSecond", 20, "Percent chance per second for radio chatter. Vanilla is 30");
+            damageTakenMult = Config.Bind<float>("General", "DamageTakenMult", 0.9f, "Multiply all damage taken by companions by this amount");
+            minTimeBetweenRadio = Config.Bind<int>("General", "MinTimeBetweenRadio", 15, "Min number of seconds between idle radio chatter. Vanilla is 15");
+            radioChancePerSecond = Config.Bind<int>("General", "RadioChancePerSecond", 10, "Percent chance per second for radio chatter. Vanilla is 30");
             noRadioWhileFollowing = Config.Bind<bool>("General", "NoRadioWhileFollowing", true, "No radio chatter while following player.");
+            disableFriendlyFire = Config.Bind<bool>("General", "DisableFriendlyFire", true, "Disable friendly fire.");
             extraEquipmentSlots = Config.Bind<bool>("General", "ExtraEquipmentSlots", true, "Add 3 extra equipment slots beyond the vanilla 3");
-            healthRegenPerSecond = Config.Bind<int>("General", "HealthRegenPerSecond", 1, "Regen this many health per second until full");
+            healthRegenPerSecond = Config.Bind<float>("General", "HealthRegenPerSecond", 0.1f, "Regen this many health per second until full");
         
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), null);
             Dbgl("Plugin awake");
@@ -62,7 +62,7 @@ namespace BetterCompanions
                 var buttons = __instance.transform.Find("Content/Box 3/Categories (1)");
                 if (buttons)
                 {
-                    buttons.GetComponent<RectTransform>().anchoredPosition += new Vector2(0, -62);
+                    buttons.GetComponent<RectTransform>().anchoredPosition = new Vector2(-166, -600);
                 }
 
                 foreach (var asi in __instance.GetComponentsInChildren<AgentSelectionIcon>())
@@ -86,6 +86,7 @@ namespace BetterCompanions
                     }
                     foreach(var es in ess)
                     {
+                        es.GetComponent<EventTrigger>().enabled = false;
                         es.Initiate(Global.code.combatagents.items[asi.index]?.GetComponent<Girl>());
                     }
                     //Dbgl($"{asi.name} now has {ess.Length} slots");
@@ -104,15 +105,50 @@ namespace BetterCompanions
             }
         }
 
+        
+        [HarmonyPatch(typeof(LivingBallisticObject), nameof(LivingBallisticObject.Impact))]
+        static class LivingBallisticObject_Impact_Patch
+        {
+            static bool Prefix(LivingBallisticObject __instance, ImpactInfo impactInfo)
+            {
+                var allow = (!enableMod.Value || !disableFriendlyFire.Value || !__instance.GetComponent<CrashData>().mainObj.GetComponent<ID>().isFriendly || !impactInfo.weapon.damageSource.GetComponent<ID>().isFriendly);
+                if (!allow)
+                    Dbgl("Preventing friendly fire");
+                return allow;
+            }
+        }
+        
+        [HarmonyPatch(typeof(BallisticObject), nameof(BallisticObject.SurfaceImpact))]
+        static class BallisticObject_SurfaceImpact_Patch
+        {
+            static bool Prefix(BallisticObject __instance, SurfaceImpactInfo surfaceImpactInfo)
+            {
+                var allow = (!enableMod.Value || !disableFriendlyFire.Value || !(__instance is LivingBallisticObject) || !__instance.GetComponent<CrashData>().mainObj.GetComponent<ID>().isFriendly || !surfaceImpactInfo.weapon.damageSource.GetComponent<ID>().isFriendly);
+                return allow;
+            }
+        }
+
+
+        [HarmonyPatch(typeof(PlayerControl), "Update")]
+        static class PlayerControl_Update_Patch
+        {
+            static void Postfix(PlayerControl __instance)
+            {
+                if (!enableMod.Value || !noRadioWhileFollowing.Value)
+                    return;
+                for (int i = 0; i < Global.code.combatagents.items.Count; i++)
+                {
+                    if (Global.code.combatagents.items[i] && Global.code.combatagents.items[i].GetComponent<Girl>()?.generatedModel?.GetComponent<Character>()?.goalTarget?.parent == __instance.girlsSpawningPoints[i])
+                    {
+                        Global.code.combatagents.items[i].GetComponent<Girl>().generatedModel.GetComponent<Character>().idleTimer = 0;
+                    }
+                }
+            }
+        }
+
         [HarmonyPatch(typeof(Character), "FriendlyTactics")]
         static class Character_FriendlyTactics_Patch
         {
-            static void Prefix(Character __instance)
-            {
-                if (!enableMod.Value || !__instance._ID.isFriendly || !noRadioWhileFollowing.Value)
-                    return;
-                __instance.idleTimer = 0;
-            }
             static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
             {
                 Dbgl("Transpiling Character FriendlyTactics");
